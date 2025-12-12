@@ -10,13 +10,15 @@ import {
   Filter
 } from 'lucide-react';
 
- import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
- import 'leaflet/dist/leaflet.css'; 
+// Bibliotecas de Mapa
+import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css'; 
 
-// --- Componente 1: Painel BI (Com Iframe Real) ---
+// --- Componente 1: Painel BI ---
 const BIDashboard = () => {
   const [isExporting, setIsExporting] = useState(false);
 
+  // Link do Power BI
   const powerBiUrl = "https://app.powerbi.com/view?r=eyJrIjoiMTQzODQzMjUtNDkyMS00MDllLWI5MzktOWY4ZDdlZjk3MGM2IiwidCI6IjFmMWJlODA0LWViZGYtNDJmNC1iZGExLTdmMjlhYmU2ZDQ3YSJ9"; 
 
   const handleExport = () => {
@@ -68,9 +70,12 @@ const BIDashboard = () => {
   );
 };
 
+// Componente Auxiliar de Zoom
 const MapUpdater = ({ coords }) => {
   const map = useMap();
-  map.setView([coords.lat, coords.lng], 15); 
+  if (coords && coords.lat != null && coords.lng != null) {
+    map.setView([coords.lat, coords.lng], 15); 
+  }
   return null;
 };
 
@@ -83,14 +88,17 @@ const GISMap = () => {
     fetch('/meu_mapa.json') 
       .then(response => {
         if(response.ok) return response.json();
+        return null; 
       })
-      .then(data => setGeoJsonData(data))
-      .catch(err => console.log("Arquivo de mapa não encontrado na pasta public."));
+      .then(data => {
+        if (data) setGeoJsonData(data);
+      })
+      .catch(err => console.log("Erro silencioso: Mapa não carregado."));
   }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    alert(`Buscando: ${coords.lat}, ${coords.lng} (Ative o Leaflet no código para ver o zoom)`);
+    console.log(`Buscando: ${coords.lat}, ${coords.lng}`);
   };
 
   return (
@@ -107,7 +115,7 @@ const GISMap = () => {
         </form>
       </div>
 
-      <div className="flex-1 relative z-0">
+      <div className="flex-1 relative z-0 h-full min-h-[500px]">
         <MapContainer center={[coords.lat, coords.lng]} zoom={13} style={{ height: "100%", width: "100%" }}>
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -119,10 +127,9 @@ const GISMap = () => {
       </div>
     </div>
   );
-
 };
 
-// --- Estrutura Principal (Menu Lateral) ---
+// --- Estrutura Principal ---
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -151,10 +158,10 @@ export default function App() {
       </aside>
 
       <main className="flex-1 flex flex-col w-full h-full relative">
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden h-full">
           {activeTab === 'dashboard' ? <BIDashboard /> : <GISMap />}
         </div>
       </main>
     </div>
-  ); 
+  );
 }
