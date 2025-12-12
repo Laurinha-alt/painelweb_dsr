@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart3, 
   Map as MapIcon, 
@@ -10,9 +10,21 @@ import {
   Filter
 } from 'lucide-react';
 
-// Bibliotecas de Mapa
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css'; 
+// --- VERSÃO ESTÁVEL: Leaflet Puro (Sem travamentos) ---
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Correção dos ícones do marcador
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 // --- Componente 1: Painel BI ---
 const BIDashboard = () => {
@@ -36,7 +48,7 @@ const BIDashboard = () => {
       link.click();
       document.body.removeChild(link);
       setIsExporting(false);
-      alert("Arquivo CSV baixado com sucesso!");
+      alert("Download concluído com sucesso!");
     }, 1000);
   };
 
@@ -45,8 +57,9 @@ const BIDashboard = () => {
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
         <div>
           <h2 className="text-lg font-bold text-gray-800">Painel de Indicadores</h2>
-          <p className="text-sm text-gray-500">Visualização Integrada Power BI</p>
+          <p className="text-sm text-gray-500">Ministério das Cidades - DSR</p>
         </div>
+        {/* Botão de Download EM MANUTENÇÃO
         <button 
           onClick={handleExport}
           className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
@@ -69,36 +82,91 @@ const BIDashboard = () => {
     </div>
   );
 };
+        */}
 
-// Componente Auxiliar de Zoom
-const MapUpdater = ({ coords }) => {
-  const map = useMap();
-  if (coords && coords.lat != null && coords.lng != null) {
-    map.setView([coords.lat, coords.lng], 15); 
-  }
-  return null;
+        {/* Avisode funcionalidade futura  */}
+        <div className="text-xs text-gray-400 italic border border-gray-200 px-3 py-1 rounded-full">
+            Exportação de dados em breve
+        </div>
+
+      </div>
+
+      <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative">
+        <iframe 
+          title="Relatorio Power BI"
+          width="100%" 
+          height="100%" 
+          src={powerBiUrl} 
+          frameBorder="0" 
+          allowFullScreen={true}
+          className="absolute inset-0"
+        ></iframe>
+      </div>
+    </div>
+  );
 };
 
-// --- Componente 2: Mapa GIS ---
+
+// --- Componente 2: Mapa GIS (Alta Resolução Google) ---
 const GISMap = () => {
-  const [coords, setCoords] = useState({ lat: -15.7975, lng: -47.8919 });
-  const [geoJsonData, setGeoJsonData] = useState(null);
+  const mapContainerRef = useRef(null); 
+  const mapInstanceRef = useRef(null);
+  
+  // Inicia focado na Rodoviária- Brasília
+  const [coords, setCoords] = useState({ lat: -15.7934, lng: -47.8823 });
 
   useEffect(() => {
-    fetch('/meu_mapa.json') 
-      .then(response => {
-        if(response.ok) return response.json();
-        return null; 
-      })
-      .then(data => {
-        if (data) setGeoJsonData(data);
-      })
-      .catch(err => console.log("Erro silencioso: Mapa não carregado."));
+    // Inicialização Única do Mapa
+    if (!mapInstanceRef.current && mapContainerRef.current) {
+      const map = L.map(mapContainerRef.current).setView([coords.lat, coords.lng], 15);
+      
+      // CAMADA GOOGLE HYBRID 
+      L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Google Maps',
+        maxZoom: 20 // Permite zoom muito próximo para ver casas/fazendas
+      }).addTo(map);
+
+      // Carrega os dados do QGIS (se existirem)
+      fetch('/meu_mapa.json')
+        .then(res => { if(res.ok) return res.json(); })
+        .then(data => {
+          if (data) {
+            L.geoJSON(data, {
+              style: { color: '#fbbf24', weight: 3, opacity: 0.8 }
+            }).addTo(map);
+          }
+        })
+        .catch(err => console.log("Camada QGIS não carregada."));
+
+      mapInstanceRef.current = map;
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
   }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
-    console.log(`Buscando: ${coords.lat}, ${coords.lng}`);
+    if (mapInstanceRef.current) {
+      const lat = parseFloat(coords.lat);
+      const lng = parseFloat(coords.lng);
+      
+      if (!isNaN(lat) && !isNaN(lng)) {
+        // Adiciona um marcador no local pesquisado para fácil identificação
+        L.marker([lat, lng]).addTo(mapInstanceRef.current)
+          .bindPopup(`<b>Ponto de Análise</b><br>Lat: ${lat}<br>Lng: ${lng}`)
+          .openPopup();
+
+        // ZOOM NÍVEL 18: Extremamente próximo para ver detalhes
+        mapInstanceRef.current.setView([lat, lng], 18); 
+      } else {
+        alert("Coordenadas inválidas. Use formato decimal (ex: -15.7934)");
+      }
+    }
   };
 
   return (
@@ -106,24 +174,32 @@ const GISMap = () => {
       <div className="bg-white p-4 shadow-sm border-b z-10 flex gap-4 justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="bg-blue-100 p-2 rounded text-blue-600"><MapIcon size={20} /></div>
-          <h2 className="font-bold text-gray-800">Mapa QGIS</h2>
+          <div>
+            <h2 className="font-bold text-gray-800">Analizador Geoespacial</h2>
+            <p className="text-xs text-gray-500">Satélite Google Hybrid</p>
+          </div>
         </div>
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <input className="border p-1.5 rounded text-sm w-24" placeholder="Lat" value={coords.lat} onChange={e => setCoords({...coords, lat: e.target.value})}/>
-          <input className="border p-1.5 rounded text-sm w-24" placeholder="Lng" value={coords.lng} onChange={e => setCoords({...coords, lng: e.target.value})}/>
-          <button type="submit" className="bg-blue-600 text-white p-1.5 rounded"><Search size={16}/></button>
+        <form onSubmit={handleSearch} className="flex gap-2 bg-gray-100 p-1 rounded border border-gray-200">
+          <input 
+            className="bg-transparent p-1.5 text-sm w-28 outline-none border-r border-gray-300" 
+            placeholder="Latitude" 
+            value={coords.lat} 
+            onChange={e => setCoords({...coords, lat: e.target.value})}
+          />
+          <input 
+            className="bg-transparent p-1.5 text-sm w-28 outline-none" 
+            placeholder="Longitude" 
+            value={coords.lng} 
+            onChange={e => setCoords({...coords, lng: e.target.value})}
+          />
+          <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 font-medium text-sm flex items-center gap-1">
+            <Search size={14}/> Ir
+          </button>
         </form>
       </div>
 
       <div className="flex-1 relative z-0 h-full min-h-[500px]">
-        <MapContainer center={[coords.lat, coords.lng]} zoom={13} style={{ height: "100%", width: "100%" }}>
-          <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            attribution='Tiles &copy; Esri'
-          />
-          {geoJsonData && <GeoJSON data={geoJsonData} style={{ color: '#fbbf24', weight: 3, opacity: 0.8 }} />}
-          <MapUpdater coords={coords} />
-        </MapContainer>
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
       </div>
     </div>
   );
@@ -138,7 +214,7 @@ export default function App() {
     <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
       <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-slate-900 text-white transition-all flex flex-col shadow-xl z-20`}>
         <div className="p-4 flex justify-between items-center border-b border-slate-700 h-16">
-          {isSidebarOpen && <span className="font-bold tracking-wider text-blue-400">PAINEL DSR</span>}
+          {isSidebarOpen && <span className="font-bold tracking-wider text-blue-400">MCID PORTAL</span>}
           <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="hover:bg-slate-700 p-1 rounded"><Menu size={20}/></button>
         </div>
         <nav className="flex-1 p-3 space-y-2">
