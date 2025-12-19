@@ -10,7 +10,6 @@ import {
   Filter
 } from 'lucide-react';
 
-// --- VERSÃO ESTÁVEL: Leaflet Puro (Sem travamentos) ---
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -26,7 +25,7 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// --- Componente 1: Painel BI ---
+// Painel BI 
 const BIDashboard = () => {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -107,12 +106,12 @@ const BIDashboard = () => {
 };
 
 
-// --- Componente 2: Mapa GIS (Alta Resolução Google) ---
+// Mapa GIS (Alta Resolução Google)
 const GISMap = () => {
   const mapContainerRef = useRef(null); 
   const mapInstanceRef = useRef(null);
   
-  // Inicia focado na Rodoviária- Brasília
+  // Inicia na Rodoviária- Brasília
   const [coords, setCoords] = useState({ lat: -15.7934, lng: -47.8823 });
 
   useEffect(() => {
@@ -136,7 +135,7 @@ const GISMap = () => {
             }).addTo(map);
           }
         })
-        .catch(err => console.log("Camada QGIS não carregada."));
+        .catch(err => console.log("Camada não carregada."));
 
       mapInstanceRef.current = map;
     }
