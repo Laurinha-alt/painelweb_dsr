@@ -39,3 +39,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+public/aglomerado_rural.json
+public/setores_censitarios.json
+public/*.json
