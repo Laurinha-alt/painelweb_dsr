@@ -6,7 +6,12 @@ const { Pool } = pkg;
 import cors from 'cors';
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://painelwebdsr.netlify.app'
+  ]
+}));
 
 const pool = new Pool({
   user: process.env.DB_USER, host: process.env.DB_HOST, database: process.env.DB_NAME,
@@ -96,4 +101,5 @@ app.get('/api/exportar-obra', async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log('Backend Ativo'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Backend ativo na porta ${PORT}`));
